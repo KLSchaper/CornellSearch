@@ -284,6 +284,7 @@ KEYTAGS = [["date","\date{", "}"],
            ["keywords", "{\\bf Key words:}", "."],
            ["author", "\\author{", "}"],
            ["keywords","\\it Key words:","\end"],
+           ["content", "\\section{", "\end{document}"]
             ]
 
 PUNCTUATION_TABLE = str.maketrans({key: None for key in string.punctuation})
