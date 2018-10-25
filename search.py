@@ -47,21 +47,28 @@ def json_to_bulk(folder, index, doc_type="document"):
 
 
 def text_to_query(txt, fields=FIELDS):
-    query = { "query" : { "match" : {} } }
-    apostrophs = re.compile("'.*'")
+    query = { "bool" : {}}
 
     for field, pattern in fields:
         for i in re.finditer(pattern, txt):
 
-            value = re.search(apostrophs, txt[i.end():])
-            if value:
-                query['query']['match'][field] = value.group()
-                txt = txt[:i.start()] + txt[i.end() + value.end():]
+            j0, j1 = txt[i.end():].find("'"), -1
+            if j0 > -1:
+                j1 = txt[i.end() + j0 + 1:].find("'")
 
-    if txt.strip():
-        query["query"]["match"]["content"] = txt
+            if j0 > -1 and j1 > -1:
+                if not "must" in query["bool"]:
+                    query["bool"]["must"] = []
 
-    return query
+                j0 += i.end() + 1
+                j1 += j0
+                query["bool"]["must"].append({"match" : {field : txt[j0 : j1]}})
+                txt = txt[:i.start()] + txt[j1 + 1:]
+
+    if txt.strip() != "":
+        query["bool"]["should"] = {"match" : {"content" : txt}}
+
+    return {"query" : query}
 
 
 if __name__ == "__main__":
@@ -73,7 +80,9 @@ if __name__ == "__main__":
         bulk(es, json_to_bulk(FOLDER, 'test'), stats_only=True)
         print("\nTest index is build.")
 
-    query = text_to_query("theory author = 'Gibson' date = '2002'")
+    query = text_to_query("theory author = 'john'")
 
     print(query, end='\n\n')
-    print(es.search(index="test", body=query)["hits"])
+    results = es.search(index="test", body=query)['hits']['hits']
+    for i, doc in enumerate(results):
+        print(i)
