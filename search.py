@@ -10,6 +10,7 @@ HOST = 'http://localhost:9200/'
 FOLDER = "json/hep-th-2002/"
 FIELDS = [("author", re.compile(" +author *= *")),
           ("date", re.compile(" +date *= *"))]
+ES = Elasticsearch(hosts=[HOST])
 
 
 def anti_stupidity_function(folder):
@@ -104,8 +105,13 @@ def text_to_query(txt, fields=FIELDS):
     return {"query" : query}
 
 
+def elastic(text):
+    query = text_to_query(text)
+    return ES.search(index="test", body=query)['hits']['hits']
+
+
 if __name__ == "__main__":
-    es = Elasticsearch(hosts=[HOST])
+    es = ES
     # es.indices.delete("test")
     if not es.indices.exists("test"):
         print("No test index found, ", end="", flush=True)
