@@ -175,7 +175,7 @@ class Node:
                     self.other_keys[name] = content.translate(PUNCTUATION_TABLE)
             if 'content' in tempkeynames:
                 everything = " ".join(linelist).translate(PUNCTUATION_TABLE)
-                print(everything[:100])
+                #print(everything[:100])
                 self.other_keys['content'] = everything
 
             #for k,v in self.other_keys.items():
