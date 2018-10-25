@@ -46,11 +46,44 @@ def json_to_bulk(folder, index, doc_type="document"):
             yield f_json
 
 
+def get_date(index, txt, query):
+    j0 = txt[index.end():].find("'")
+    if j0 == -1:
+        return txt
+    j0 += index.end() + 1
+
+    j1 = txt[j0:].find("'")
+    if j1 == -1:
+        return txt
+    j1 += j0
+
+    date = txt[j0:j1]
+    sep = date.find(':')
+    if sep == -1:
+        query["bool"]["must"].append({"match" : {'date' : date}})
+        return txt[:index.start()] + txt[j1 + 1:]
+
+    date0 = date[:sep]
+    date1 = date[sep+1:]
+
+    if not 'filter' in query['bool']:
+        query['bool']['filter'] = { 'range' : { 'date' : {} } }
+
+    query['bool']['filter']['range']['date']['gte'] = date0
+    query['bool']['filter']['range']['date']['lt'] = date1
+
+    return txt[:index.start()] + txt[j1 + 1:]
+
+
 def text_to_query(txt, fields=FIELDS):
     query = { "bool" : {}}
 
     for field, pattern in fields:
         for i in re.finditer(pattern, txt):
+
+            if field == "date":
+                txt = get_date(i, txt, query)
+                continue
 
             j0, j1 = txt[i.end():].find("'"), -1
             if j0 > -1:
@@ -80,9 +113,10 @@ if __name__ == "__main__":
         bulk(es, json_to_bulk(FOLDER, 'test'), stats_only=True)
         print("\nTest index is build.")
 
-    query = text_to_query("theory author = 'john'")
+    query = text_to_query("theory date = '2001:2003'")
 
     print(query, end='\n\n')
     results = es.search(index="test", body=query)['hits']['hits']
     for i, doc in enumerate(results):
-        print(i)
+        print(doc)
+        break
