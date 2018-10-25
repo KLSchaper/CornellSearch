@@ -75,7 +75,6 @@ with open(os.path.join(os.path.curdir, testfile)) as f:
 print('\n'.join([line[:-1] for line in latex_lines]))
 
 
-
 def strip_comments(ll):
     """ returns lines of the latex file, except that comments, i.e. everything behind % on a
 
@@ -167,10 +166,12 @@ class Node:
             for ind, line in enumerate(linelist):
                 name, content = self.extract_tags(line, ind, tempkeys)
                 if name:
+                    if not len(name):
+                        print("wowzers")
                     temp_n_ind = tempkeynames.index(name)
                     tempkeys.pop(temp_n_ind)
                     tempkeynames.pop(temp_n_ind)
-                self.other_keys[name] = content.translate(PUNCTUATION_TABLE)
+                    self.other_keys[name] = content.translate(PUNCTUATION_TABLE)
             #for k,v in self.other_keys.items():
                 #print(k, v, "\n")
 
@@ -278,16 +279,15 @@ class parsetree:
 
 def JSON_unknown_cn(node):
     if type(node) == str:
-        return node.translate(PUNCTUATION_TABLE) #remove punctuation
+        no_punct = node.translate(PUNCTUATION_TABLE) #remove punctuation
+        return no_punct
     else:
         return {node.name : [JSON_unknown_cn(cn) for cn in node.cn]}
 
 def JSONify(node):
     base = {node.name : JSON_unknown_cn(node)}
-
     if node.headnode:
         base.update(node.other_keys)
-
     return base
 
 def JSONify_str(node):
@@ -309,26 +309,17 @@ KEYTAGS = [["date",[["\date{", "}"]]],
                 ]
           ]
 
-# KEYTAGS have format ["name", ["latex_begin_tag", "latex_end_tag"]]
-KEYTAGS = [["date",[["\date{", "}"], ["%Date: ", "\n"]]],
-           ["abstract",[["\\begin{abstract}", "\end{abstract}"]]],
-           ["keywords", [["{\\bf Key words:}", "."]]],
-           ["author", [["\\author{", "}"], ["%From: ", "\n"]]],
-           ["keywords",[["\\it Key words:","\end"]]],
-           ["content", [["\\section{", "\end{document}"]]],
-           ["introduction", [["\\newsec{", "\\newsec"],   # includes first line of section after intro
-                             ["\\section{", "\\section{"] # includes first line of section after intro
-                    ]
-                ]
-          ]
-
 
 # KEYTAGS have format ["name", ["latex_begin_tag", "latex_end_tag"]]
 KEYTAGS = [["date",[["\\date{", "}"], ["%Date: ", "\n"]]],
            ["abstract",[["\\begin{abstract}", "\\end{abstract}"], ["\\abstract{", "}"], ["\\Abstract{", "}"],
                         ["Abstract", "\\new"], ["abstract", "\\new"], ["abstract", "\\end"], ["Abstract", "\\end"],
                         ["\abstract{", "}"],]],
-           ["author", [["\\author{", "}"], ["%From: ", "\n"]]],
+           ["author", [["\\author{", "}"], # 9201005
+                        ["\\author{", "\\"], # 9201007, 9201008
+                        ["author{", "}"], #9301009
+                        ["author {", "}"], #9301006
+                        ["%From: ", "\n"]]], # 9201004, 9301004,
            ["keywords",[["\\it Key words:","\\end"], ["\\Key words:","\\end"], ["Key words", "."]]],
            ["content", [["\\section{", "\\end{document}"]]],
            ["introduction", [["\\newsec{", "\\newsec"],   # includes first line of section after intro
