@@ -275,7 +275,6 @@ class parsetree:
             print(jfname)
             #print(str(json.dumps(JSON)))
             f.write(str(json.dumps(JSON)))
-            raise KeyboardInterrupt
 
 def JSON_unknown_cn(node):
     if type(node) == str:
