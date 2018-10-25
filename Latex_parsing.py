@@ -5,6 +5,7 @@ import shutil
 import re
 import nltk
 import string
+import json
 
 print(os.listdir())
 print(os.listdir('unzipped'))
@@ -26,7 +27,7 @@ def get_dataset():
         testfile = urllib.request.URLopener()
         testfile.retrieve(base + df + '.tar.gz', 'data_zipped/' + filebase + df +'.tar.gz')
 
-    
+
 if 'unzipped' not in contents:
     os.mkdir('unzipped')
 if 'data_zipped' not in contents:
@@ -35,9 +36,6 @@ if 'data_zipped' not in contents:
         get_dataset()
 if 'json' not in contents:
     os.mkdir('json')
-
-
-
 
 
 
@@ -60,7 +58,7 @@ def extract_tar():
                 tar.extractall()
                 tar.close()
         shutil.move(tfi[-11:-7], os.path.join(unzipped_folder,tf[:-7]))
-        
+
 if not os.listdir('unzipped'):
     extract_tar()
 
@@ -75,18 +73,12 @@ with open(os.path.join(os.path.curdir, testfile)) as f:
 
 #print(latex_lines)
 print('\n'.join([line[:-1] for line in latex_lines]))
-    
 
 
-
-
-
-
-    
 
 def strip_comments(ll):
     """ returns lines of the latex file, except that comments, i.e. everything behind % on a
-    
+
     line, are removed.
     """
     line_list = ll[:]
@@ -99,16 +91,16 @@ def strip_comments(ll):
     line_list = [line.strip() for line in line_list]
     line_list = [line for line in line_list if line]
     return line_list
-            
 
-    
+
+
 def get_name_section(section_string, depth):
     """ returns (sub) section name, string
-    
+
     :param section_string: string, latex_line with section tag on it
     :param depth: int, depth of section 0 = \section, 1 = \subsection etc.
     :return: string, either what is included in the section tag, or all of it that is included on that line
-    
+
     # TODO:
       -  check for closing tag beforehand, such that complete names can be extracted, if the name spans multiple rows
       -  simplify function by replacing the string in find for start with levelname(depth) (works now but tired, so not risking)
@@ -121,14 +113,14 @@ def get_name_section(section_string, depth):
 
 def levelname(depth):
     """ returns string with appropriate (sub) section latex command for given depth
-    
+
     :param depth: int
     """
     return '\\' + 'sub'*depth + 'section{'
 
 def section_delimiters(linelist, level):
     """ returns two lists, delimiters for (sub) sections as indices of the list,
-    
+
     and their accompanying names
     """
     indices = []
@@ -144,19 +136,19 @@ def section_delimiters(linelist, level):
 
 
 class Node:
-    """ the basic unit that will be dictionaryfied, currently each node containstheir own name (section title), 
-    
+    """ the basic unit that will be dictionaryfied, currently each node containstheir own name (section title),
+
     a list of subnodes and accompanying names.
-    in the future the headnode (in the parsetree) will function as the main node, containing 
+    in the future the headnode (in the parsetree) will function as the main node, containing
     subnodes 'recursively', as well as being the location in which other keywords and values are placed
     (i.e. 'author':[authorlist], 'date':'date' (in multiple formats for search))
 
-    each of these keyswords gives more options to the user later on, so if 
+    each of these keyswords gives more options to the user later on, so if
     you have some 'free' time... (ha wouldn't you wish)
     this is a TODO as well
-    
+
     I emphasize: if this is not done well, our search is going to seriously suck.
-    
+
     """
     def __init__(self, name, linelist, level, headnode=False):
         self.tot_lines = len(linelist)
@@ -167,10 +159,6 @@ class Node:
         self.ld, self.cnames = leveldelimiters, childnames
         self.cn = []
         #print(level, self.name)
-
-        for i in range(len(self.ld)-1):
-            #print(level)
-            self.cn = [Node(self.cnames[i], linelist[self.ld[i]:self.ld[i+1]], level+1)]
 
         if headnode:
             self.other_keys = {}
@@ -186,11 +174,11 @@ class Node:
             #for k,v in self.other_keys.items():
                 #print(k, v, "\n")
 
-            
+
 
     def extract_tags(self, line, ind, tempkeys):
         """
-        
+
         KEYTAGS have format [["name", "latex_begin_tag", "latex_end_tag"], ...]
         """
         found_lbt = ""
@@ -199,26 +187,28 @@ class Node:
         close = 0
         content = ""
         for i, keytag in enumerate(tempkeys):
-            n, lbt, let = keytag
-            i = line.find(lbt)
-            
-            if i != -1:
-                #print(lbt, line)
-                close = self.find_closing(let, ind)
-                found_lbt = lbt
-                found_let = let
-                found_n = n
-                #print(found_lbt)
-                content = self.extract_tag_contents(" ".join(self.linelist[ind:close]), found_lbt, found_let)
-                break
-                
+            n, comb = keytag
+            for lbt, let in comb:
+                i = line.find(lbt)
+
+                if i != -1:
+                    #print(lbt, line)
+                    try:
+                        close = self.find_closing(let, ind)
+                    except IndexError:
+                        print(keytag, ind)
+                        raise IndexError
+
+                    found_lbt = lbt
+                    found_let = let
+                    found_n = n
+                    #print(found_lbt)
+                    content = " ".join(self.linelist[ind:close])
+                    break
+
         return found_n, content
-    
-    @staticmethod
-    def extract_tag_contents(string, lbt, let):
-        return string[len(lbt):-1*len(let)]
-                
-                
+
+
     def find_closing(self, closetag, startindex):
         if closetag == '}':
             brace_count = 0
@@ -234,27 +224,27 @@ class Node:
                         startindex += 1
                 else:
                     startindex += 1
-        else:    
+        else:
             while startindex < self.tot_lines:
                 if self.linelist[startindex].find(closetag) != -1:
                     return startindex + 1
                 else:
                     startindex += 1
 
-            
-         
+
+
 
 class parsetree:
     """ treelike structure, contains nodes
-    
+
     This parsetree will later be converted to JSON,
     For nor it contains lists with childnodes at each node, each of these childnodes is a lower level section
     This will be converted to the json format later (with perhaps an intermediary dictionary format)
     """
     def __init__(self, tex_dir, json_dir, subdir, documentID, overwrite=False, _print=False):
-        """ 
+        """
 
-        :param linelist: list of lines from a latex file, stripped from comments and everything before 
+        :param linelist: list of lines from a latex file, stripped from comments and everything before
             the \makefile tag, as \newcommand shenanigans make life difficult otherwise.
         :param documentID: string, the filename
         """
@@ -262,28 +252,31 @@ class parsetree:
         tfname = os.path.join(os.path.join(tex_dir, subdir), documentID)
         jsubdir = os.path.join(json_dir, subdir)
         jfname = os.path.join(jsubdir, documentID)
-        
+
         if os.path.exists(jfname):
             if not overwrite:
                 print("already parsed, going to next")
-                return 
+                return
         else:
             if not os.path.exists(jsubdir):
                 os.mkdir(jsubdir)
 
 
-        with open(tfname) as f:
+        with open(tfname, 'r', encoding='utf-8') as f:
             latex_lines = f.readlines()
-        no_comments = strip_comments(latex_lines)
 
-        self.headnode = Node(documentID, no_comments, 0, headnode=True)
+        #no_comments = strip_comments(latex_lines)
+        #self.headnode = Node(documentID, no_comments, 0, headnode=True)
+        self.headnode = Node(documentID, latex_lines, 0, headnode=True)
         JSON = JSONify(self.headnode)
-        
-    
+
+
         with open(jfname, 'w') as f:
-            #print(str(JSON))
-            f.write(str(JSON))
-        
+            print(jfname)
+            #print(str(json.dumps(JSON)))
+            f.write(str(json.dumps(JSON)))
+            raise KeyboardInterrupt
+
 def JSON_unknown_cn(node):
     if type(node) == str:
         return node.translate(PUNCTUATION_TABLE) #remove punctuation
@@ -301,46 +294,71 @@ def JSONify(node):
 def JSONify_str(node):
     return node.cn
 
-        
-
-        
-# KEYTAGS have format ["name", "latex_begin_tag", "latex_end_tag"]
-KEYTAGS = [["date","\date{", "}"], 
-           ["abstract","\\begin{abstract}", "\end{abstract}"], 
-           ["keywords", "{\\bf Key words:}", "."],
-           ["author", "\\author{", "}"],
-           ["keywords","\\it Key words:","\end"],
-           ["content", "\\section{", "\end{document}"]
-            ]
-
-PUNCTUATION_TABLE = str.maketrans({key: None for key in string.punctuation})
 
 
-tex_dir = 'unzipped'
-docID = '0301005'
-json_dir = 'json'
-sub_dir = 'hep-th-2003'
+
+# KEYTAGS have format ["name", [["latex_begin_tag_option1", "latex_end_tag_option1"], ["latex_begin_tag_option1", "latex_end_tag_option1"]]]
+KEYTAGS = [["date",[["\date{", "}"]]],
+           ["abstract",[["\\begin{abstract}", "\end{abstract}"], ["\section{abstract}", "\section{}"]]],
+           ["keywords", [["{\\bf Key words:}", "."]]],
+           ["author", [["\\author{", "}"]]],
+           ["keywords",[["\\it Key words:","\end"]]],
+           ["content", [["\\section{", "\end{document}"]]],
+           ["introduction", [["\\newsec{introduction", "\\newsec"],   # includes first line of section after intro
+                             ["\\section{introduction", "\\section{"] # includes first line of section after intro
+                    ]
+                ]
+          ]
+
+# KEYTAGS have format ["name", ["latex_begin_tag", "latex_end_tag"]]
+KEYTAGS = [["date",[["\date{", "}"], ["%Date: ", "\n"]]],
+           ["abstract",[["\\begin{abstract}", "\end{abstract}"]]],
+           ["keywords", [["{\\bf Key words:}", "."]]],
+           ["author", [["\\author{", "}"], ["%From: ", "\n"]]],
+           ["keywords",[["\\it Key words:","\end"]]],
+           ["content", [["\\section{", "\end{document}"]]],
+           ["introduction", [["\\newsec{", "\\newsec"],   # includes first line of section after intro
+                             ["\\section{", "\\section{"] # includes first line of section after intro
+                    ]
+                ]
+          ]
 
 
+# KEYTAGS have format ["name", ["latex_begin_tag", "latex_end_tag"]]
+KEYTAGS = [["date",[["\\date{", "}"], ["%Date: ", "\n"]]],
+           ["abstract",[["\\begin{abstract}", "\\end{abstract}"], ["\\abstract{", "}"], ["\\Abstract{", "}"],
+                        ["Abstract", "\\new"], ["abstract", "\\new"], ["abstract", "\\end"], ["Abstract", "\\end"],
+                        ["\abstract{", "}"],]],
+           ["author", [["\\author{", "}"], ["%From: ", "\n"]]],
+           ["keywords",[["\\it Key words:","\\end"], ["\\Key words:","\\end"], ["Key words", "."]]],
+           ["content", [["\\section{", "\\end{document}"]]],
+           ["introduction", [["\\newsec{", "\\newsec"],   # includes first line of section after intro
+                             ["\\section{", "\\section{"] # includes first line of section after intro
+                    ]
+                ]
+          ]
+
+PUNCTUATION_TABLE = str.maketrans({key: " " for key in string.punctuation})
+
+
+tex_dir = "unzipped"
+docID = "0301005"
+json_dir = "json"
+sub_dir = "hep-th-2003"
 doctree = parsetree(tex_dir, json_dir, sub_dir, docID, True)
 
 
-
-
-json_dir = 'json'
-tex_dir = 'unzipped'
+json_dir = "json"
+tex_dir = "unzipped"
 
 faulty = []
 
-for sd in os.listdir('unzipped'):
+for sd in os.listdir("unzipped"):
+    #if not (sd == "hep-th-1992"):
+    #    continue
     for file in os.listdir(os.path.join(tex_dir, sd)):
         try:
             parsetree(tex_dir, json_dir, sd, file, overwrite=True)
         except UnicodeDecodeError:
             faulty.append(file)
-
 print(faulty)
-        
-
-
-
