@@ -12,7 +12,7 @@ print(os.listdir('unzipped'))
 
 
 
-
+DOCID_TO_DATE = dict()
 contents = os.listdir()
 # Should list among others: data_zipped, elasticserch-1.7.1, unzipped
 # data_zipped should contain all hep-th-YYYY.tar.gz ziles
@@ -110,7 +110,6 @@ def get_name_section(section_string, depth):
     truestart = start + 3*depth + 9 #adding the latex command to index
     return section_string[truestart:end]
 
-
 def levelname(depth):
     """ returns string with appropriate (sub) section latex command for given depth
 
@@ -133,6 +132,22 @@ def section_delimiters(linelist, level):
     return indices + [-1], names
 
 
+def read_slacdates(path):
+    """ Returns a dictionary that links the id of a paper to the date it was
+    published.
+
+    :param path: string, the path to the slacdates file.
+    """
+    id_to_date = dict()
+
+    with open(path) as slacdates:
+        for row in slacdates:
+            i = row.index(' ')
+            ID = row[:i]
+            date = row[i + 1 : -1]
+            id_to_date[ID] = date
+
+    return id_to_date
 
 
 class Node:
@@ -275,6 +290,7 @@ class parsetree:
         #no_comments = strip_comments(latex_lines)
         #self.headnode = Node(documentID, no_comments, 0, headnode=True)
         self.headnode = Node(documentID, latex_lines, 0, headnode=True)
+        self.headnode.other_keys['date'] = DOCID_TO_DATE[documentID]
         JSON = JSONify(self.headnode)
 
 
@@ -341,6 +357,7 @@ KEYTAGS = [["date",[["date{", "}"], #9301009, 00010001
 
 PUNCTUATION_TABLE = str.maketrans({key: " " for key in string.punctuation})
 
+DOCID_TO_DATE = read_slacdates('hep-th-slacdates')
 
 tex_dir = "unzipped"
 docID = "0301005"
