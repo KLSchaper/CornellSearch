@@ -4,6 +4,7 @@ import re
 import os
 from elasticsearch import Elasticsearch
 from elasticsearch.helpers import bulk
+from wordcloud import WordCloud
 
 
 HOST = 'http://localhost:9200/'
@@ -110,6 +111,15 @@ def elastic(text):
     return ES.search(index="test", body=query)['hits']['hits']
 
 
+def word_cloud(text_query, docs):
+    string = ""
+    for doc in docs:
+        string += doc['_source']['content']
+
+    result = WordCloud().generate(string)
+    result.to_file(text_query + ".png")
+
+
 if __name__ == "__main__":
     es = ES
     # es.indices.delete("test")
@@ -123,6 +133,4 @@ if __name__ == "__main__":
 
     print(query, end='\n\n')
     results = es.search(index="test", body=query)['hits']['hits']
-    for i, doc in enumerate(results):
-        print(doc)
-        break
+    word_cloud("theory date = '2001:2003'", results)
