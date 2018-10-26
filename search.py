@@ -111,7 +111,7 @@ def text_to_query(txt, fields=FIELDS):
 
 def elastic(text):
     query = text_to_query(text)
-    return ES.search(index="test", body=query)['hits']['hits']
+    return ES.search(index="final", body=query)['hits']['hits']
 
 
 def word_cloud(text_query, docs):
@@ -125,8 +125,7 @@ def word_cloud(text_query, docs):
 
 if __name__ == "__main__":
     es = ES
-    es.indices.delete("test")
-    es.indices.delete("final")
+    #es.indices.delete("final")
     if not es.indices.exists("final"):
         print("No index found.")
         es.indices.create("final")

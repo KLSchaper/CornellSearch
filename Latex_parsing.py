@@ -405,6 +405,7 @@ class parsetree:
         #self.headnode = Node(documentID, no_comments, 0, headnode=True)
         self.headnode = Node(documentID, latex_lines, abstr_lines, 0, headnode=True)
         self.headnode.other_keys['date'] = DOCID_TO_DATE[documentID]
+        self.headnode.other_keys['docID'] = tfname
 
         JSON = JSONify(self.headnode)
 

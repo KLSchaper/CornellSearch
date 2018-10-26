@@ -10,6 +10,14 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import os
 
+
+import matplotlib
+from datetime import datetime
+from matplotlib.dates import date2num
+import matplotlib.dates
+import matplotlib.pyplot as plt
+
+
 import search
 
 Frame = tk.Frame
@@ -28,7 +36,7 @@ screen_width = 1450
 screen_height = 1100
 
 search_height = screen_height*0.08
-res_height = screen_height*0.8
+res_height = screen_height*0.92
 single_res_height = screen_height*0.15
 
 bot_height = int(screen_height*0.07)
@@ -36,6 +44,19 @@ link_width = int(screen_width*0.6)
 
 graph_width = int(screen_width-link_width)
 graph_height = int(res_height*0.5)
+
+def to_datetime(teststring):
+    return datetime.strptime(teststring, '%Y-%m-%d')
+
+
+def make_figure_dates(list_of_datetimes):
+    list_of_datetimes = [to_datetime(date) for date in list_of_datetimes]
+    values = [1 for _ in list_of_datetimes]
+    values = [sum(values[:i+1]) for i, _ in enumerate(values)]
+    plt.plot(list_of_datetimes, values)
+    plt.savefig("current_time_plot.png")
+    plt.clf()
+
 
 def opendoc(doclink):
     os.system("gedit "+doclink)
@@ -68,17 +89,12 @@ def make_resbox(master_frame, title, doclink, highlights, titlebg='lightcyan'):
 
 root.geometry('{}x{}'.format(screen_width, screen_height))
 
-#####################################################
-# Search, resultframe, botframe
-#####################################################
 # create all of the main containers
 search_frame = Frame(root, bg='white', width=screen_width, height=search_height)
 resultframe = Frame(root, bg="white", width=screen_width, height=res_height)
-botframe = Frame(root, bg="green", width=screen_width, height=bot_height)
 
 search_frame.grid(row=0)
 resultframe.grid(row=1)
-botframe.grid(row=2)
 
 for col in range(12):
     search_frame.grid_columnconfigure(col, minsize=screen_width/12)
@@ -108,10 +124,15 @@ def query(somestring):
     #print(type(temp[0]))
     #print(temp[0]['_source'].keys())
     results = [[res["_source"].get("title", ""), res["_source"].get("docID"), res["highlight"]["content"]] for res in first_results]
+    dates = [res["_source"].get("date") for res in first_results]
+    dates = sorted(dates)
+    make_figure_dates(dates)
+
+    print(dates)
     search.word_cloud(somestring, first_results)
     #print(results)
     basedoclink = ""
-    return results, somestring + ".png", "its_time.jpg"
+    return results, somestring + ".png", "current_time_plot.png"
 
 def process_query(query_entry, resbox, wordcloud_frame, time_frame):
     q = query_entry.get()
@@ -126,6 +147,12 @@ def process_query(query_entry, resbox, wordcloud_frame, time_frame):
         widget.destroy()
     for i, res in enumerate(results):
         title, doclink, abstract_or_highlight = res
+        abstract_or_highlight = abstract_or_highlight[0]
+        abstract_or_highlight = abstract_or_highlight.replace("<em>", "")
+        abstract_or_highlight = abstract_or_highlight.replace("</em>", "")
+        abstract_or_highlight = abstract_or_highlight.replace("\n", "")
+        if not title:
+            title = "[No title found for this document]"
         resbutton = make_resbox(res_buttons_frame, title, doclink, abstract_or_highlight)
         resbutton.grid(row=i, column=1, sticky='news')
 
@@ -191,7 +218,7 @@ bbox = canvas.bbox(tk.ALL)  # Get bounding box of canvas with Buttons.
 # number of rows and columns displayed.
 w, h = bbox[2]-bbox[1], bbox[3]-bbox[1]
 dw, dh = int((link_width/COLS) * COLS_DISP), int((res_height/ROWS) * ROWS_DISP)
-canvas.configure(scrollregion=bbox, width=dw, height=dh)
+canvas.configure(scrollregion=bbox, width=dw, height=dh+100)
 
 
 # layout the graphs in the right frame
