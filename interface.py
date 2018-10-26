@@ -10,7 +10,7 @@ import tkinter as tk
 from PIL import Image, ImageTk
 import os
 
-#import search.py
+import search
 
 Frame = tk.Frame
 Label = tk.Label
@@ -20,10 +20,7 @@ Canvas = tk.Canvas
 Scrollbar = tk.Scrollbar
 
 root = tk.Tk()
-root.title('Model Definition')
-
-
-
+root.title('CornellSearch')
 
 
 
@@ -104,12 +101,16 @@ queryframe = Frame(search_frame, bg='white')
 queryframe.grid(row=1, column=2, columnspan=7)
 
 
-
 def query(somestring):
-    print(somestring)
+    #print(somestring)
+    first_results = search.elastic(somestring)
+    #print(type(temp[0]))
+    #print(temp[0]['_source'].keys())
+    results = [[res["_source"].get("title", ""), res["_source"].get("docID"), res["highlight"]["content"]] for res in first_results]
+    search.word_cloud(somestring, first_results)
+    #print(results)
     basedoclink = ""
-    results = [["title" + str(i), basedoclink + str(i), somestring + " some_highligh" + str(i)] for i in range(10)]
-    return results, "nice.jpg", "its_time.jpg"
+    return results, somestring + ".png", "its_time.jpg"
 
 def process_query(query_entry, resbox, wordcloud_frame, time_frame):
     q = query_entry.get()

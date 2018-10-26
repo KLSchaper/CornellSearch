@@ -7,12 +7,7 @@ import nltk
 import string
 import json
 
-print(os.listdir())
-print(os.listdir('unzipped'))
-
-
-
-
+DOCID_TO_DATE = dict()
 contents = os.listdir()
 # Should list among others: data_zipped, elasticserch-1.7.1, unzipped
 # data_zipped should contain all hep-th-YYYY.tar.gz ziles
@@ -48,7 +43,6 @@ def extract_tar():
     for tf in os.listdir(zipped_folder):
         tfi = os.path.join(zipped_folder, tf) # tarfile instance
         if True:
-            print(tfi)
             if (tfi.endswith("tar.gz")):
                 tar = tarfile.open(tfi, "r:gz")
                 tar.extractall()
@@ -68,29 +62,9 @@ testfile = 'unzipped/hep-th-2003/0301005'
 latex_lines = []
 
 with open(os.path.join(os.path.curdir, testfile)) as f:
-    #print(''.join(f.readlines()))
     latex_lines = f.readlines()
 
-#print(latex_lines)
-print('\n'.join([line[:-1] for line in latex_lines]))
 
-
-
-def strip_comments(ll):
-    """ returns lines of the latex file, except that comments, i.e. everything behind % on a
-
-    line, are removed.
-    """
-    line_list = ll[:]
-    for ind, line in enumerate(line_list):
-        comment_pos = line.find('%')
-        if comment_pos != -1:
-            line_list[ind] = line[:line.find('%')]
-        else:
-            line_list[ind] = line[:-1]
-    line_list = [line.strip() for line in line_list]
-    line_list = [line for line in line_list if line]
-    return line_list
 
 
 
@@ -134,6 +108,21 @@ def section_delimiters(linelist, level):
 
 
 
+def read_slacdates(path):
+    """ Returns a dictionary that links the id of a paper to the date it was
+    published.
+    :param path: string, the path to the slacdates file.
+    """
+    id_to_date = dict()
+
+    with open(path) as slacdates:
+        for row in slacdates:
+            i = row.index(' ')
+            ID = row[:i]
+            date = row[i + 1 : -1]
+            id_to_date[ID] = date
+
+    return id_to_date
 
 class Node:
     """ the basic unit that will be dictionaryfied, currently each node containstheir own name (section title),
@@ -150,15 +139,17 @@ class Node:
     I emphasize: if this is not done well, our search is going to seriously suck.
 
     """
-    def __init__(self, name, linelist, level, headnode=False):
+    def __init__(self, name, linelist, linelist_abstr, level, headnode=False):
         self.tot_lines = len(linelist)
         self.headnode = headnode
         self.name = name
         self.linelist = linelist
+
+        self.tot_lines_abstract = len(linelist_abstr)
+        self.linelist_abstr = linelist_abstr
         leveldelimiters, childnames =  section_delimiters(linelist, level)
         self.ld, self.cnames = leveldelimiters, childnames
         self.cn = []
-        #print(level, self.name)
 
         if headnode:
             self.other_keys = {}
@@ -167,23 +158,19 @@ class Node:
             for ind, line in enumerate(linelist):
                 name, content = self.extract_tags(line, ind, tempkeys)
                 if name:
-                    if not len(name):
-                        print("wowzers")
                     temp_n_ind = tempkeynames.index(name)
                     tempkeys.pop(temp_n_ind)
                     tempkeynames.pop(temp_n_ind)
+                    content = LatexTags(content).remove()
                     self.other_keys[name] = content.translate(PUNCTUATION_TABLE)
             if 'content' in tempkeynames:
                 everything = " ".join(linelist).translate(PUNCTUATION_TABLE)
-                #print(everything[:100])
                 self.other_keys['content'] = everything
-
-            #for k,v in self.other_keys.items():
-                #print(k, v, "\n")
+                self.parse_abstract()
 
 
 
-    def extract_tags(self, line, ind, tempkeys):
+    def extract_tags(self, line, ind, tempkeys, abstr=False):
         """
 
         KEYTAGS have format [["name", "latex_begin_tag", "latex_end_tag"], ...]
@@ -199,47 +186,129 @@ class Node:
                 i = line.find(lbt)
 
                 if i != -1:
-                    #print(lbt, line)
                     try:
-                        close = self.find_closing(let, ind)
+                        close = self.find_closing(let, ind, abstr=abstr)
                     except IndexError:
-                        print(keytag, ind)
                         raise IndexError
 
                     found_lbt = lbt
                     found_let = let
                     found_n = n
-                    #print(found_lbt)
-                    content = " ".join(self.linelist[ind:close])
+                    if abstr:
+                        content = " ".join(self.linelist_abstr[ind:close])
+                    else:
+                        content = " ".join(self.linelist[ind:close])
                     break
 
         return found_n, content
 
 
-    def find_closing(self, closetag, startindex):
-        if closetag == '}':
-            brace_count = 0
-            while startindex < self.tot_lines:
-                #print("startindex: ", startindex)
-                if self.linelist[startindex].find('{') != -1:
-                    brace_count += 1
-                if self.linelist[startindex].find('}') != -1:
-                    brace_count -= 1
-                    if brace_count == 0:
+    def find_closing(self, closetag, startindex, abstr=False):
+
+
+        # ABSTRACT FILE
+        if abstr:
+            if closetag == '}':
+                brace_count = 0
+                while startindex < self.tot_lines_abstract:
+                    if self.linelist_abstr[startindex].find('{') != -1:
+                        brace_count += 1
+                    if self.linelist_abstr[startindex].find('}') != -1:
+                        brace_count -= 1
+                        if brace_count == 0:
+                            return startindex + 1
+                        else:
+                            startindex += 1
+                    else:
+                        startindex += 1
+            else:
+                while startindex < self.tot_lines_abstract:
+                    if self.linelist_abstr[startindex].find(closetag) != -1:
                         return startindex + 1
                     else:
                         startindex += 1
-                else:
-                    startindex += 1
+
+
+        # LATEX FILE
         else:
-            while startindex < self.tot_lines:
-                if self.linelist[startindex].find(closetag) != -1:
-                    return startindex + 1
-                else:
-                    startindex += 1
+            if closetag == '}':
+                brace_count = 0
+                while startindex < self.tot_lines:
+                    if self.linelist[startindex].find('{') != -1:
+                        brace_count += 1
+                    if self.linelist[startindex].find('}') != -1:
+                        brace_count -= 1
+                        if brace_count == 0:
+                            return startindex + 1
+                        else:
+                            startindex += 1
+                    else:
+                        startindex += 1
+            else:
+                while startindex < self.tot_lines:
+                    if self.linelist[startindex].find(closetag) != -1:
+                        return startindex + 1
+                    else:
+                        startindex += 1
+
+
+    def add_key(self, key, value):
+        self.other_keys[key] = value
+
+    def parse_abstract(self):
+        tempkeys = ABSTR_KEYS[:]
+        tempkeynames = [k[0] for k in tempkeys]
+        for ind, line in enumerate(self.linelist_abstr):
+            name, content = self.extract_tags(line, ind, tempkeys, abstr=True)
+            if name:
+                temp_n_ind = tempkeynames.index(name)
+                tempkeys.pop(temp_n_ind)
+                tempkeynames.pop(temp_n_ind)
+                self.other_keys[name] = content.translate(PUNCTUATION_TABLE)
 
 
 
+class LatexTags:
+
+    def __init__(self, text):
+        self.backslash = False
+        self.brace = False
+        self.dollar = False
+
+        self.text = text
+        i = self.text.find('\\begin{document}')
+        if i > 0:
+            self.text = self.text[i:]
+
+        self.result = ""
+
+    def pre_read_char(self, c):
+        if c == '\\':
+            self.backslash = True
+
+        elif c == ' ' or c == '\n':
+            self.backslash = False
+
+        elif c == '}':
+            self.brace = False
+
+        elif c == '$':
+            self.dollar = not self.dollar
+
+    def post_read_char(self, c):
+        if self.backslash and c == '{':
+            self.brace = True
+
+    def remove(self):
+        for c in self.text:
+            self.pre_read_char(c)
+
+            if not (self.backslash or self.brace or self.dollar):
+                self.result += c
+
+            self.post_read_char(c)
+
+        return self.result
 
 class parsetree:
     """ treelike structure, contains nodes
@@ -248,7 +317,7 @@ class parsetree:
     For nor it contains lists with childnodes at each node, each of these childnodes is a lower level section
     This will be converted to the json format later (with perhaps an intermediary dictionary format)
     """
-    def __init__(self, tex_dir, json_dir, subdir, documentID, overwrite=False, _print=False):
+    def __init__(self, tex_dir, json_dir, subdir, documentID, abstr_dir, overwrite=False, _print=False):
         """
 
         :param linelist: list of lines from a latex file, stripped from comments and everything before
@@ -257,6 +326,7 @@ class parsetree:
         """
         latex_lines = []
         tfname = os.path.join(os.path.join(tex_dir, subdir), documentID)
+        afname = os.path.join(os.path.join(abstr_dir, subdir[7:]), documentID+".abs")
         jsubdir = os.path.join(json_dir, subdir)
         jfname = os.path.join(jsubdir, documentID)
 
@@ -272,14 +342,17 @@ class parsetree:
         with open(tfname, 'r', encoding='utf-8') as f:
             latex_lines = f.readlines()
 
-        #no_comments = strip_comments(latex_lines)
+        with open(afname, 'r', encoding='utf-8') as f:
+            abstr_lines = f.readlines()
+
         #self.headnode = Node(documentID, no_comments, 0, headnode=True)
-        self.headnode = Node(documentID, latex_lines, 0, headnode=True)
+        self.headnode = Node(documentID, latex_lines, abstr_lines, 0, headnode=True)
+        self.headnode.other_keys['date'] = DOCID_TO_DATE[documentID]
+
         JSON = JSONify(self.headnode)
 
 
         with open(jfname, 'w') as f:
-            print(jfname)
             #print(str(json.dumps(JSON)))
             f.write(str(json.dumps(JSON)))
 
@@ -302,20 +375,6 @@ def JSONify_str(node):
 
 
 
-# KEYTAGS have format ["name", [["latex_begin_tag_option1", "latex_end_tag_option1"], ["latex_begin_tag_option1", "latex_end_tag_option1"]]]
-KEYTAGS = [["date",[["\date{", "}"]]],
-           ["abstract",[["\\begin{abstract}", "\end{abstract}"], ["\section{abstract}", "\section{}"]]],
-           ["keywords", [["{\\bf Key words:}", "."]]],
-           ["author", [["\\author{", "}"]]],
-           ["keywords",[["\\it Key words:","\end"]]],
-           ["content", [["\\section{", "\end{document}"]]],
-           ["introduction", [["\\newsec{introduction", "\\newsec"],   # includes first line of section after intro
-                             ["\\section{introduction", "\\section{"] # includes first line of section after intro
-                    ]
-                ]
-          ]
-
-
 
 
 # KEYTAGS have format ["name", ["latex_begin_tag", "latex_end_tag"]]
@@ -323,15 +382,7 @@ KEYTAGS = [["date",[["date{", "}"], #9301009, 00010001
                     ["Date{", "}"], #9301008
                     ["%Date: ", "\n"]]], # 9201002, 9201003, 9201004 etc...
                                         # Kun je checken of 9301010 "Mon Jan  4 13:06:16 1993" geeft? Of empty/niks?,
-           ["abstract",[["\\begin{abstract}", "\\end{abstract}"], ["\\abstract{", "}"], ["\\Abstract{", "}"],
-                        ["Abstract", "\\new"], ["abstract", "\\new"], ["abstract", "\\end"], ["Abstract", "\\end"],
-                        ["\abstract{", "}"],]],
-           ["author", [["\\author{", "}"], # 9201005
-                        ["\\author{", "\\"], # 9201007, 9201008
-                        ["author{", "}"], #9301009
-                        ["author {", "}"], #9301006
-                        ["%From: ", "\n"]]], # 9201004, 9301004,
-           ["keywords",[["\\it Key words:","\\end"], ["\\Key words:","\\end"], ["Key words", "."]]],
+           ["facet",[["\\it Key words:","\\end"], ["\\Key words:","\\end"], ["Key words", "."]]],
            ["content", [["\\section{", "\\end{document}"]]],
            ["introduction", [["\\newsec{", "\\newsec"],   # includes first line of section after intro
                              ["\\section{", "\\section{"] # includes first line of section after intro
@@ -339,27 +390,31 @@ KEYTAGS = [["date",[["date{", "}"], #9301009, 00010001
                 ]
           ]
 
+
+ABSTR_KEYS = [["author",[["Authors: ", "\n"], ]],
+              ["title",[["Title: ", "\n"], ]],
+              ["abstract",[["\\\\\\n  ", "\\\\"]]]]
+
 PUNCTUATION_TABLE = str.maketrans({key: " " for key in string.punctuation})
 
-
-tex_dir = "unzipped"
-docID = "0301005"
+DOCID_TO_DATE = read_slacdates('hep-th-slacdates')
 json_dir = "json"
+tex_dir = "unzipped"
+abstr_dir = "abstracts"
 sub_dir = "hep-th-2003"
-doctree = parsetree(tex_dir, json_dir, sub_dir, docID, True)
-
-
-json_dir = "json"
-tex_dir = "unzipped"
 
 faulty = []
 
 for sd in os.listdir("unzipped"):
-    #if not (sd == "hep-th-1992"):
-    #    continue
     for file in os.listdir(os.path.join(tex_dir, sd)):
+        print(file)
         try:
-            parsetree(tex_dir, json_dir, sd, file, overwrite=True)
-        except UnicodeDecodeError:
+            try:
+                #tex_dir, json_dir, subdir, documentID, abstr_dir
+                parsetree(tex_dir, json_dir, sd, file, abstr_dir, overwrite=True)
+            except UnicodeDecodeError:
+                faulty.append(file)
+        except FileNotFoundError:
             faulty.append(file)
+
 print(faulty)
