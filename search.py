@@ -10,7 +10,8 @@ from wordcloud import WordCloud
 HOST = 'http://localhost:9200/'
 FOLDER = "json/hep-th-2002/"
 FIELDS = [("author", re.compile(" +author *= *")),
-          ("date", re.compile(" +date *= *"))]
+          ("date", re.compile(" +date *= *")),
+          ("facet", re.compile(" +facet *= *"))]
 ES = Elasticsearch(hosts=[HOST])
 
 
