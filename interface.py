@@ -104,6 +104,7 @@ queryframe.grid(row=1, column=2, columnspan=7)
 def query(somestring):
     #print(somestring)
     first_results = search.elastic(somestring)
+    print(len(first_results), "= length first results")
     #print(type(temp[0]))
     #print(temp[0]['_source'].keys())
     results = [[res["_source"].get("title", ""), res["_source"].get("docID"), res["highlight"]["content"]] for res in first_results]
