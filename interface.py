@@ -129,7 +129,8 @@ def query(somestring):
     make_figure_dates(dates)
 
     print(dates)
-    search.word_cloud(somestring, first_results)
+    if dates:
+        search.word_cloud(somestring, first_results)
     #print(results)
     basedoclink = ""
     return results, somestring + ".png", "current_time_plot.png"
@@ -140,8 +141,9 @@ def process_query(query_entry, resbox, wordcloud_frame, time_frame):
     #results, wordcloud, time_graph = elastic(q)
 
     results, wordcloud, time_graph = query(q)
-    put_image_in_frame(wordcloud, wordcloud_frame, graph_width, graph_height)
-    put_image_in_frame(time_graph, time_frame, graph_width, graph_height)
+    if results:
+        put_image_in_frame(wordcloud, wordcloud_frame, graph_width, graph_height)
+        put_image_in_frame(time_graph, time_frame, graph_width, graph_height)
 
     for widget in resbox.winfo_children():
         widget.destroy()

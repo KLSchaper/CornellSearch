@@ -475,7 +475,7 @@ for sd in os.listdir("unzipped"):
         try:
             try:
                 #tex_dir, json_dir, subdir, documentID, abstr_dir
-                parsetree(tex_dir, json_dir, sd, file, abstr_dir, overwrite=True)
+                parsetree(tex_dir, json_dir, sd, file, abstr_dir, overwrite=False)
             except UnicodeDecodeError:
                 faulty.append(file)
         except FileNotFoundError:

@@ -11,24 +11,11 @@ HOST = 'http://localhost:9200/'
 FOLDER = "json/"
 FIELDS = [("author", re.compile(" +author *= *")),
           ("date", re.compile(" +date *= *")),
-          ("facet", re.compile(" +facet *= *"))]
+          ("facet", re.compile(" +facet *= *")),
+          ("title", re.compile(" +title *= *")),
+          ("abstract", re.compile(" +abstract *= *"))]
 ES = Elasticsearch(hosts=[HOST])
 BULK_SIZE = 30
-
-
-def anti_stupidity_function(folder):
-    print(len(os.listdir(folder)))
-    for filename in os.listdir(folder):
-        print('.', end="", flush=True)
-        txt = ""
-        with open(folder + filename, 'r') as f:
-            txt = f.read()
-        txt = txt.replace("'", '"')
-        txt = txt.replace(' "": "",', "")
-
-        with open(folder + filename, 'w') as f:
-            f.write(txt)
-    print()
 
 
 def json_to_bulk(folder, index, start, max_iter, doc_type="document"):
@@ -64,6 +51,8 @@ def get_date(index, txt, query):
 
     date = txt[j0:j1]
     sep = date.find(':')
+    if not "must" in query["bool"]:
+        query["bool"]["must"] = []
     if sep == -1:
         query["bool"]["must"].append({"match" : {'date' : date}})
         return txt[:index.start()] + txt[j1 + 1:]
@@ -125,7 +114,7 @@ def word_cloud(text_query, docs):
 
 if __name__ == "__main__":
     es = ES
-    #es.indices.delete("final")
+    es.indices.delete("final")
     if not es.indices.exists("final"):
         print("No index found.")
         es.indices.create("final")
