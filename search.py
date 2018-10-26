@@ -8,11 +8,12 @@ from wordcloud import WordCloud
 
 
 HOST = 'http://localhost:9200/'
-FOLDER = "json/hep-th-2002/"
+FOLDER = "json/"
 FIELDS = [("author", re.compile(" +author *= *")),
           ("date", re.compile(" +date *= *")),
           ("facet", re.compile(" +facet *= *"))]
 ES = Elasticsearch(hosts=[HOST])
+BULK_SIZE = 30
 
 
 def anti_stupidity_function(folder):
@@ -30,11 +31,12 @@ def anti_stupidity_function(folder):
     print()
 
 
-def json_to_bulk(folder, index, doc_type="document"):
-    print("Building a new one with", len(os.listdir(folder)), "documents.")
+def json_to_bulk(folder, index, start, max_iter, doc_type="document"):
+    for i, filename in enumerate(os.listdir(folder)[start:]):
 
-    for filename in os.listdir(folder):
-        print('.', end="")
+        if i > max_iter:
+            break
+
         with open(folder + filename) as f:
 
             f_json = ""
@@ -123,19 +125,26 @@ def word_cloud(text_query, docs):
 
 if __name__ == "__main__":
     es = ES
-    # es.indices.delete("test")
-    if not es.indices.exists("test"):
-        print("No test index found, ", end="", flush=True)
-        es.indices.create("test")
-        bulk(es, json_to_bulk(FOLDER, 'test'), stats_only=True)
+    es.indices.delete("test")
+    es.indices.delete("final")
+    if not es.indices.exists("final"):
+        print("No index found.")
+        es.indices.create("final")
+        for folder in os.listdir(FOLDER):
+            print("Now indexing folder", folder)
+            folder = FOLDER + folder + '/'
+            num = (len(os.listdir(folder)) // BULK_SIZE) + 1
+            for i in range(num):
+                print("Bulk", i, "of", num)
+                i *= BULK_SIZE
+                bulk(es, json_to_bulk(folder, 'final', i, BULK_SIZE), stats_only=True)
         print("\nTest index is build.")
 
     query = text_to_query("theory date = '2001:2003'")
 
     print(query, end='\n\n')
-    results = es.search(index="test", body=query)['hits']['hits']
+    results = es.search(index="final", body=query)['hits']['hits']
 
-    for result in results:
-        print(result['highlight'])
+    print("Found", len(results), "results")
 
     word_cloud("theory date = '2001:2003'", results)
