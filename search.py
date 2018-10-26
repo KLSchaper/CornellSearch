@@ -117,7 +117,7 @@ def word_cloud(text_query, docs):
     for doc in docs:
         string += doc['_source']['content']
 
-    result = WordCloud().generate(string)
+    result = WordCloud(max_words=50).generate(string)
     result.to_file(text_query + ".png")
 
 
