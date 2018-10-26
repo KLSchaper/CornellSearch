@@ -103,7 +103,7 @@ def text_to_query(txt, fields=FIELDS):
     if txt.strip() != "":
         query["bool"]["should"] = {"match" : {"content" : txt}}
 
-    return {"query" : query}
+    return {"query" : query, 'highlight' : { 'fields' : { 'content' : {}}}}
 
 
 def elastic(text):
@@ -133,4 +133,8 @@ if __name__ == "__main__":
 
     print(query, end='\n\n')
     results = es.search(index="test", body=query)['hits']['hits']
+
+    for result in results:
+        print(result['highlight'])
+
     word_cloud("theory date = '2001:2003'", results)
