@@ -93,7 +93,6 @@ def strip_comments(ll):
     return line_list
 
 
-
 def get_name_section(section_string, depth):
     """ returns (sub) section name, string
 
@@ -187,6 +186,7 @@ class Node:
                     temp_n_ind = tempkeynames.index(name)
                     tempkeys.pop(temp_n_ind)
                     tempkeynames.pop(temp_n_ind)
+                    content = LatexTags(content).remove()
                     self.other_keys[name] = content.translate(PUNCTUATION_TABLE)
             if 'content' in tempkeynames:
                 everything = " ".join(linelist).translate(PUNCTUATION_TABLE)
@@ -255,6 +255,49 @@ class Node:
 
 
 
+class LatexTags:
+
+    def __init__(self, text):
+        self.backslash = False
+        self.brace = False
+        self.dollar = False
+
+        self.text = text
+        i = self.text.find('\\begin{document}')
+        if i > 0:
+            self.text = self.text[i:]
+
+        self.result = ""
+
+    def pre_read_char(self, c):
+        if c == '\\':
+            self.backslash = True
+
+        elif c == ' ' or c == '\n':
+            self.backslash = False
+
+        elif c == '}':
+            self.brace = False
+
+        elif c == '$':
+            self.dollar = not self.dollar
+
+    def post_read_char(self, c):
+        if self.backslash and c == '{':
+            self.brace = True
+
+    def remove(self):
+        for c in self.text:
+            self.pre_read_char(c)
+
+            if not (self.backslash or self.brace or self.dollar):
+                self.result += c
+
+            self.post_read_char(c)
+
+        return self.result
+
+
 
 class parsetree:
     """ treelike structure, contains nodes
@@ -298,6 +341,7 @@ class parsetree:
             print(jfname)
             #print(str(json.dumps(JSON)))
             f.write(str(json.dumps(JSON)))
+
 
 def JSON_unknown_cn(node):
     if type(node) == str:
@@ -354,6 +398,8 @@ KEYTAGS = [["date",[["date{", "}"], #9301009, 00010001
                     ]
                 ]
           ]
+
+
 
 PUNCTUATION_TABLE = str.maketrans({key: " " for key in string.punctuation})
 
