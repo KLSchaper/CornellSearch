@@ -7,6 +7,14 @@ import nltk
 import string
 import json
 
+<<<<<<< HEAD
+=======
+print(os.listdir())
+print(os.listdir('unzipped'))
+
+
+
+>>>>>>> 06004135719c8104127232c4c41fd319e6408505
 DOCID_TO_DATE = dict()
 contents = os.listdir()
 # Should list among others: data_zipped, elasticserch-1.7.1, unzipped
@@ -67,7 +75,6 @@ with open(os.path.join(os.path.curdir, testfile)) as f:
 
 
 
-
 def get_name_section(section_string, depth):
     """ returns (sub) section name, string
 
@@ -83,7 +90,6 @@ def get_name_section(section_string, depth):
     end = section_string.find('}')
     truestart = start + 3*depth + 9 #adding the latex command to index
     return section_string[truestart:end]
-
 
 def levelname(depth):
     """ returns string with appropriate (sub) section latex command for given depth
@@ -107,6 +113,22 @@ def section_delimiters(linelist, level):
     return indices + [-1], names
 
 
+def read_slacdates(path):
+    """ Returns a dictionary that links the id of a paper to the date it was
+    published.
+
+    :param path: string, the path to the slacdates file.
+    """
+    id_to_date = dict()
+
+    with open(path) as slacdates:
+        for row in slacdates:
+            i = row.index(' ')
+            ID = row[:i]
+            date = row[i + 1 : -1]
+            id_to_date[ID] = date
+
+    return id_to_date
 
 def read_slacdates(path):
     """ Returns a dictionary that links the id of a paper to the date it was
@@ -267,6 +289,49 @@ class Node:
                 self.other_keys[name] = content.translate(PUNCTUATION_TABLE)
 
 
+class LatexTags:
+
+    def __init__(self, text):
+        self.backslash = False
+        self.brace = False
+        self.dollar = False
+
+        self.text = text
+        i = self.text.find('\\begin{document}')
+        if i > 0:
+            self.text = self.text[i:]
+
+        self.result = ""
+
+    def pre_read_char(self, c):
+        if c == '\\':
+            self.backslash = True
+
+        elif c == ' ' or c == '\n':
+            self.backslash = False
+
+        elif c == '}':
+            self.brace = False
+
+        elif c == '$':
+            self.dollar = not self.dollar
+
+    def post_read_char(self, c):
+        if self.backslash and c == '{':
+            self.brace = True
+
+    def remove(self):
+        for c in self.text:
+            self.pre_read_char(c)
+
+            if not (self.backslash or self.brace or self.dollar):
+                self.result += c
+
+            self.post_read_char(c)
+
+        return self.result
+
+
 
 class LatexTags:
 
@@ -346,15 +411,21 @@ class parsetree:
             abstr_lines = f.readlines()
 
         #self.headnode = Node(documentID, no_comments, 0, headnode=True)
+<<<<<<< HEAD
         self.headnode = Node(documentID, latex_lines, abstr_lines, 0, headnode=True)
         self.headnode.other_keys['date'] = DOCID_TO_DATE[documentID]
 
+=======
+        self.headnode = Node(documentID, latex_lines, 0, headnode=True)
+        self.headnode.other_keys['date'] = DOCID_TO_DATE[documentID]
+>>>>>>> 06004135719c8104127232c4c41fd319e6408505
         JSON = JSONify(self.headnode)
 
 
         with open(jfname, 'w') as f:
             #print(str(json.dumps(JSON)))
             f.write(str(json.dumps(JSON)))
+
 
 def JSON_unknown_cn(node):
     if type(node) == str:
@@ -390,6 +461,14 @@ KEYTAGS = [["date",[["date{", "}"], #9301009, 00010001
                 ]
           ]
 
+<<<<<<< HEAD
+=======
+
+
+PUNCTUATION_TABLE = str.maketrans({key: " " for key in string.punctuation})
+
+DOCID_TO_DATE = read_slacdates('hep-th-slacdates')
+>>>>>>> 06004135719c8104127232c4c41fd319e6408505
 
 ABSTR_KEYS = [["author",[["Authors: ", "\n"], ]],
               ["title",[["Title: ", "\n"], ]],
