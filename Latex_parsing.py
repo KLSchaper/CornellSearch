@@ -7,14 +7,6 @@ import nltk
 import string
 import json
 
-<<<<<<< HEAD
-=======
-print(os.listdir())
-print(os.listdir('unzipped'))
-
-
-
->>>>>>> 06004135719c8104127232c4c41fd319e6408505
 DOCID_TO_DATE = dict()
 contents = os.listdir()
 # Should list among others: data_zipped, elasticserch-1.7.1, unzipped
@@ -411,14 +403,9 @@ class parsetree:
             abstr_lines = f.readlines()
 
         #self.headnode = Node(documentID, no_comments, 0, headnode=True)
-<<<<<<< HEAD
         self.headnode = Node(documentID, latex_lines, abstr_lines, 0, headnode=True)
         self.headnode.other_keys['date'] = DOCID_TO_DATE[documentID]
 
-=======
-        self.headnode = Node(documentID, latex_lines, 0, headnode=True)
-        self.headnode.other_keys['date'] = DOCID_TO_DATE[documentID]
->>>>>>> 06004135719c8104127232c4c41fd319e6408505
         JSON = JSONify(self.headnode)
 
 
@@ -461,14 +448,11 @@ KEYTAGS = [["date",[["date{", "}"], #9301009, 00010001
                 ]
           ]
 
-<<<<<<< HEAD
-=======
 
 
 PUNCTUATION_TABLE = str.maketrans({key: " " for key in string.punctuation})
 
 DOCID_TO_DATE = read_slacdates('hep-th-slacdates')
->>>>>>> 06004135719c8104127232c4c41fd319e6408505
 
 ABSTR_KEYS = [["author",[["Authors: ", "\n"], ]],
               ["title",[["Title: ", "\n"], ]],
