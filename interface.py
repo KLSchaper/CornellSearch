@@ -59,12 +59,12 @@ def make_figure_dates(list_of_datetimes):
 
 
 def opendoc(doclink):
-    os.system("gedit "+doclink)
+    os.system("atom "+doclink)
 
 
-def make_resbox(master_frame, title, doclink, highlights, titlebg='lightcyan'):
+def make_resbox(master_frame, title, doclink, highlights, author="", titlebg='lightcyan'):
     resframe = Frame(master_frame, bg=titlebg, width=link_width, height=single_res_height)
-    titleframe = Label(resframe, text=title, bg=titlebg, padx=20)
+    titleframe = Label(resframe, text=title + "\t" + author + "\t" + doclink , bg=titlebg, padx=20)
     titleframe.grid(sticky='nw')
     titleframe.grid_columnconfigure(0, minsize=link_width)
     titleframe.bind("<Button-1>", lambda e, doclink = doclink: opendoc(doclink))
@@ -81,8 +81,10 @@ def make_resbox(master_frame, title, doclink, highlights, titlebg='lightcyan'):
     description.grid(row=0, column=0)
     description.grid(sticky='nw')
     description.grid_rowconfigure(1, minsize=single_res_height)
-
-    return resframe
+    rfh= resframe.winfo_reqheight()
+    tfh = titleframe.winfo_reqheight()
+    srfh = description.winfo_reqheight()
+    return resframe, rfh+srfh
 
 
 
@@ -118,26 +120,22 @@ queryframe.grid(row=1, column=2, columnspan=7)
 
 
 def query(somestring):
-    #print(somestring)
     first_results = search.elastic(somestring)
-    print(len(first_results), "= length first results")
-    #print(type(temp[0]))
-    #print(temp[0]['_source'].keys())
-    results = [[res["_source"].get("title", ""), res["_source"].get("docID"), res["highlight"]["content"]] for res in first_results]
+    results = [[res["_source"].get("title", ""),
+                res["_source"].get("docID"),
+                res.get("highlight", {'content':''})["content"],
+                res["_source"].get("author", "NOT FOUND")] for res in first_results]
     dates = [res["_source"].get("date") for res in first_results]
     dates = sorted(dates)
     make_figure_dates(dates)
 
-    print(dates)
     if dates:
         search.word_cloud(somestring, first_results)
-    #print(results)
     basedoclink = ""
     return results, somestring + ".png", "current_time_plot.png"
 
 def process_query(query_entry, resbox, wordcloud_frame, time_frame):
     q = query_entry.get()
-    print(q)
     #results, wordcloud, time_graph = elastic(q)
 
     results, wordcloud, time_graph = query(q)
@@ -147,16 +145,31 @@ def process_query(query_entry, resbox, wordcloud_frame, time_frame):
 
     for widget in resbox.winfo_children():
         widget.destroy()
+    tot_height = 0
+    doclinks = []
     for i, res in enumerate(results):
-        title, doclink, abstract_or_highlight = res
+        title, doclink, abstract_or_highlight, author = res
+        doclinks.append(doclink)
         abstract_or_highlight = abstract_or_highlight[0]
         abstract_or_highlight = abstract_or_highlight.replace("<em>", "")
         abstract_or_highlight = abstract_or_highlight.replace("</em>", "")
         abstract_or_highlight = abstract_or_highlight.replace("\n", "")
         if not title:
             title = "[No title found for this document]"
-        resbutton = make_resbox(res_buttons_frame, title, doclink, abstract_or_highlight)
+            resbutton, h = make_resbox(res_buttons_frame, title, doclink, abstract_or_highlight, author=author)
+        else:
+            resbutton, h = make_resbox(res_buttons_frame, title[6:-1], doclink, abstract_or_highlight, author=author)
+
+        tot_height += h
         resbutton.grid(row=i, column=1, sticky='news')
+    bbox = canvas.bbox(tk.ALL)
+
+    bbox = list(bbox)
+    bbox[3] = tot_height
+    bbox = tuple(bbox)
+    #print("search term = '", q, "' results are:\n", doclinks)
+    canvas.configure(scrollregion=bbox, width=dw, height=dh)
+
 
 
 def put_image_in_frame(imagefile, frame, width, height):
@@ -206,7 +219,7 @@ for i in range(1, ROWS+1):
     for j in range(1, COLS+1):
         #button = tk.Button(res_buttons_frame, padx=7, pady=7, relief=tk.RIDGE,
         #                   text="[%d, %d]" % (i, j))
-        resbutton = make_resbox(res_buttons_frame, "", "", "", titlebg='white')
+        resbutton, h = make_resbox(res_buttons_frame, "", "", "", titlebg='white')
         resbutton.grid(row=i, column=j, sticky='news')
 
 # Create canvas window to hold the buttons_frame.
@@ -214,13 +227,12 @@ canvas.create_window((0,0), window=res_buttons_frame, anchor=tk.NW)
 
 res_buttons_frame.update_idletasks()  # Needed to make bbox info available.
 bbox = canvas.bbox(tk.ALL)  # Get bounding box of canvas with Buttons.
-#print('canvas.bbox(tk.ALL): {}'.format(bbox))print(bbox)
 
 # Define the scrollable region as entire canvas with only the desired
 # number of rows and columns displayed.
 w, h = bbox[2]-bbox[1], bbox[3]-bbox[1]
 dw, dh = int((link_width/COLS) * COLS_DISP), int((res_height/ROWS) * ROWS_DISP)
-canvas.configure(scrollregion=bbox, width=dw, height=dh+100)
+canvas.configure(scrollregion=bbox, width=dw, height=dh)
 
 
 # layout the graphs in the right frame
